@@ -1,21 +1,46 @@
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../usuario.dart';
 
-// Fase 1: simula chave-valor como no DartPad. shared_preferences será usado
-// na Fase 2, depois da entrega da migração arquitetural.
 class PreferencesService {
-  final Map<String, Object> _valores = {};
+  static const _sessao = 'entrelinhas.sessao';
 
   Future<void> salvar(int id, PreferenciasUsuario preferencias) async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    _valores['usuario.$id.tema'] = preferencias.escuro ? 'escuro' : 'claro';
-    _valores['usuario.$id.fonte'] = preferencias.fonte;
+    final dados = await SharedPreferences.getInstance();
+    if (!await dados.setBool(
+          'entrelinhas.usuario.$id.tema',
+          preferencias.escuro,
+        ) ||
+        !await dados.setString(
+          'entrelinhas.usuario.$id.fonte',
+          preferencias.fonte.toString(),
+        )) {
+      throw StateError('Falha ao salvar preferências.');
+    }
   }
 
   Future<PreferenciasUsuario> ler(int id) async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    final dados = await SharedPreferences.getInstance();
     return PreferenciasUsuario(
-      escuro: _valores['usuario.$id.tema'] == 'escuro',
-      fonte: (_valores['usuario.$id.fonte'] as double?) ?? 16,
+      escuro: dados.getBool('entrelinhas.usuario.$id.tema') ?? false,
+      fonte:
+          double.tryParse(
+            dados.getString('entrelinhas.usuario.$id.fonte') ?? '',
+          ) ??
+          16,
     );
+  }
+
+  Future<int?> lerSessao() async {
+    final dados = await SharedPreferences.getInstance();
+    return int.tryParse(dados.getString(_sessao) ?? '');
+  }
+
+  Future<void> salvarSessao(int? id) async {
+    final dados = await SharedPreferences.getInstance();
+    final salvo = id == null
+        ? await dados.remove(_sessao)
+        : await dados.setString(_sessao, id.toString());
+    if (!salvo) throw StateError('Falha ao atualizar a sessão.');
   }
 }

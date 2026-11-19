@@ -1,4 +1,3 @@
-// Entidade preparada para a Fase 2. Ainda não há CRUD nesta entrega.
 class Documento {
   final int id;
   final int usuarioId;
@@ -11,4 +10,18 @@ class Documento {
     required this.titulo,
     required this.conteudo,
   });
+
+  factory Documento.fromJson(Map<String, dynamic> json) => Documento(
+    id: json['id'] as int,
+    usuarioId: json['usuarioId'] as int,
+    titulo: json['titulo'] as String,
+    conteudo: json['conteudo'] as String,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'usuarioId': usuarioId,
+    'titulo': titulo,
+    'conteudo': conteudo,
+  };
 }

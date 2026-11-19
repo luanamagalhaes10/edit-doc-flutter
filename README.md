@@ -1,56 +1,33 @@
-# Entrelinhas — edit-doc-flutter
+# Entrelinhas · DocEditor MVVM
 
-Aplicativo Flutter de Luana Magalhães, migrado do DartPad para a arquitetura MVVM.
+Aplicativo Flutter de Luana Magalhães com cadastro, login e editor de documentos. O armazenamento local mantém a sessão, o tema, o tamanho da fonte e os documentos após recarregar a página ou reabrir o aplicativo. Cada conta vê sua própria lista. Os dados Web ficam no navegador usado e a versão Android mantém os dados no dispositivo.
 
-**Entrega atual: Fase 1.** Login, cadastro, tema, fonte e consultas de preferências e usuários. As simulações em memória foram mantidas. A implementação do CRUD e da persistência permanente fica para depois da entrega desta fase.
-
-O relatório pedido na atividade está em [ARQUITETURA.md](ARQUITETURA.md).
+O relatório da etapa anterior está em [ARQUITETURA.md](ARQUITETURA.md).
 
 ## Executar no Codespaces
 
-1. Abra **Code → Codespaces → Create codespace on main** e aguarde a configuração do container.
-2. Confirme a confiança na pasta, se solicitado.
-3. No terminal, execute `flutter pub get`.
-4. Pressione **F5** e selecione **Rodar App Flutter (Web Preview)**. A porta 8080 está configurada para abrir o preview automaticamente.
-
-O projeto já foi inicializado. Não é necessário executar `flutter create` novamente.
-
-Para executar pelo terminal:
+Abra um Codespace na branch `main`, execute `flutter pub get` e selecione **Rodar App Flutter (Web Preview)** com F5. Pelo terminal:
 
 ```sh
 flutter run -d web-server --web-port 8080 --web-hostname 0.0.0.0
 ```
 
-## Conferir o funcionamento
+Abra a porta 8080 em uma nova aba. Cadastre uma conta, entre, crie um documento e depois edite o título e o conteúdo. Alterne o tema no topo da tela e recarregue com F5. O aplicativo deve voltar à lista com a sessão, o tema e os dados da edição. Para testar a exclusão, use o ícone da lixeira, confirme e recarregue novamente.
 
-- Tente entrar com os campos vazios: as mensagens de validação devem aparecer.
-- Abra **Cadastre-se**, informe nome e sobrenome, e-mail terminado em `.com` ou `.com.br` e senha de pelo menos seis caracteres.
-- Escolha o tema e o tamanho da fonte e conclua o cadastro.
-- Entre com os dados cadastrados. A Home deve mostrar o nome e aplicar o tema escolhido.
-- Abra os dois cards para consultar as preferências e os usuários cadastrados.
-- Saia do app. O botão de voltar não deve reabrir a Home.
-- Tente cadastrar novamente o mesmo e-mail: o app deve avisar sobre a duplicidade.
-
-Nesta fase, recarregar a página apaga os dados simulados. Os arquivos do editor e dos documentos são preparações para a Fase 2 e ainda não oferecem CRUD.
-
-## Verificações do projeto
+## Verificar e compilar
 
 ```sh
-dart format --output=none --set-exit-if-changed lib test
 flutter analyze
 flutter test
-flutter build web
+flutter build apk --release --target-platform android-arm64
+flutter build web --release --base-href /edit-doc-flutter/
 ```
 
-Os testes cobrem validações, duplicidade de e-mail, credenciais, preferências, consulta de usuários e navegação entre as três telas.
+O instalador fica em `build/app/outputs/flutter-apk/app-release.apk`. A versão Android usa a assinatura de depuração do projeto para a instalação acadêmica. A saída Web fica em `build/web` e deve ser publicada na raiz da branch `gh-pages`.
 
-### Resultado da verificação
+## Estrutura
 
-Verificado com Flutter 3.50.0 e Dart 3.14.0, em ambiente Linux:
-
-- `flutter analyze`: nenhum problema encontrado.
-- `flutter test`: quatro testes aprovados, incluindo o fluxo das três telas, tema escuro, fonte, consultas e logout.
-- `flutter build web`: compilação concluída.
-- Código de `lib/` e `test/` formatado com `dart format`.
-
-A abertura pelo F5 dentro do Codespaces ainda está pendente. A criação do recurso foi bloqueada pela revisão automática por possível cobrança e depende de autorização da titular da conta. Os resultados acima foram obtidos neste ambiente Linux; não são um teste do preview do Codespaces.
+- `lib/models/services/preferences_service.dart` guarda as preferências e a sessão.
+- `lib/models/services/banco_local_service.dart` guarda as contas locais.
+- `lib/models/services/documento_storage_service.dart` grava e lê a lista JSON de documentos de cada conta com `shared_preferences`.
+- `lib/viewmodels/documentos_viewmodel.dart` coordena as operações de criar, listar, editar e excluir. A Home e o editor chamam esse ViewModel.

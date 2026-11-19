@@ -7,6 +7,7 @@ import '../models/usuario.dart';
 class AuthViewModel extends ChangeNotifier {
   final BancoDadosLocal _banco;
   final PreferencesService _preferencias;
+  bool _restaurando = true;
   bool _ocupado = false;
   bool _consultando = false;
   bool _escuroCadastro = false;
@@ -18,6 +19,7 @@ class AuthViewModel extends ChangeNotifier {
 
   AuthViewModel(this._banco, this._preferencias);
 
+  bool get restaurando => _restaurando;
   bool get ocupado => _ocupado;
   bool get consultando => _consultando;
   bool get escuroCadastro => _escuroCadastro;
@@ -83,7 +85,9 @@ class AuthViewModel extends ChangeNotifier {
         _mensagem = 'E-mail ou senha incorretos. Cadastre-se para começar.';
         return false;
       }
-      _preferenciasAtuais = await _preferencias.ler(usuario.id);
+      final preferencias = await _preferencias.ler(usuario.id);
+      await _preferencias.salvarSessao(usuario.id);
+      _preferenciasAtuais = preferencias;
       _sessao = DadosSessao(usuario.id, usuario.nome);
       return true;
     } catch (_) {
@@ -128,11 +132,73 @@ class AuthViewModel extends ChangeNotifier {
     }
   }
 
-  void sair() {
+  Future<void> restaurarSessao() async {
+    try {
+      final id = await _preferencias.lerSessao();
+      if (id == null) {
+        _limparSessao();
+        return;
+      }
+      for (final usuario in await _banco.query()) {
+        if (usuario.id == id) {
+          _preferenciasAtuais = await _preferencias.ler(id);
+          _sessao = DadosSessao(id, usuario.nome);
+          return;
+        }
+      }
+      await _preferencias.salvarSessao(null);
+      _limparSessao();
+    } catch (_) {
+      _mensagem = 'Não foi possível restaurar a sessão.';
+    } finally {
+      _restaurando = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> alterarTema(bool escuro) async {
+    final sessaoAtual = _sessao;
+    if (_ocupado || _consultando || sessaoAtual == null) return false;
+    _ocupado = true;
+    notifyListeners();
+    try {
+      final novas = PreferenciasUsuario(
+        escuro: escuro,
+        fonte: _preferenciasAtuais.fonte,
+      );
+      await _preferencias.salvar(sessaoAtual.id, novas);
+      _preferenciasAtuais = novas;
+      return true;
+    } catch (_) {
+      _mensagem = 'Não foi possível alterar o tema.';
+      return false;
+    } finally {
+      _ocupado = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> sair() async {
+    if (_ocupado || _consultando) return false;
+    _ocupado = true;
+    notifyListeners();
+    try {
+      await _preferencias.salvarSessao(null);
+      _limparSessao();
+      return true;
+    } catch (_) {
+      _mensagem = 'Não foi possível encerrar a sessão.';
+      return false;
+    } finally {
+      _ocupado = false;
+      notifyListeners();
+    }
+  }
+
+  void _limparSessao() {
     _sessao = null;
     _usuarios = const [];
     _preferenciasAtuais = const PreferenciasUsuario();
     _mensagem = null;
-    notifyListeners();
   }
 }

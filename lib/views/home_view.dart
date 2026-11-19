@@ -1,13 +1,72 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../models/documento.dart';
+import '../models/services/documento_storage_service.dart';
 import '../models/usuario.dart';
 import '../viewmodels/auth_viewmodel.dart';
+import '../viewmodels/documentos_viewmodel.dart';
+import 'editor_view.dart';
 import 'widgets/componentes.dart';
 
-class TelaHome extends StatelessWidget {
+class TelaHome extends StatefulWidget {
   final AuthViewModel auth;
   final DadosSessao sessao;
   const TelaHome({super.key, required this.auth, required this.sessao});
+
+  @override
+  State<TelaHome> createState() => _TelaHomeState();
+}
+
+class _TelaHomeState extends State<TelaHome> {
+  AuthViewModel get auth => widget.auth;
+  DadosSessao get sessao => widget.sessao;
+  late final documentos = DocumentosViewModel(
+    DocumentoStorageService(),
+    sessao.id,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    documentos.carregar();
+  }
+
+  @override
+  void dispose() {
+    documentos.dispose();
+    super.dispose();
+  }
+
+  void _abrirEditor([Documento? documento]) {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            TelaEditor(documentos: documentos, documento: documento),
+      ),
+    );
+  }
+
+  Future<void> _excluir(Documento documento) async {
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir documento?'),
+        content: Text(documento.titulo),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+    if (confirmou == true && mounted) await documentos.excluir(documento.id);
+  }
 
   Future<void> _mostrarPreferencias(BuildContext context) async {
     final sucesso = await auth.consultarPreferencias();
@@ -90,12 +149,35 @@ class TelaHome extends StatelessWidget {
         title: const Text('Entrelinhas'),
         actions: [
           IconButton(
+            tooltip: 'Alternar tema',
+            icon: Icon(
+              auth.preferenciasAtuais.escuro
+                  ? Icons.light_mode
+                  : Icons.dark_mode,
+            ),
+            onPressed: auth.ocupado || auth.consultando
+                ? null
+                : () async {
+                    final sucesso = await auth.alterarTema(
+                      !auth.preferenciasAtuais.escuro,
+                    );
+                    if (!sucesso && context.mounted) {
+                      avisar(context, auth.mensagem ?? 'Tente novamente.');
+                    }
+                  },
+          ),
+          IconButton(
             tooltip: 'Sair',
             icon: const Icon(Icons.logout),
-            onPressed: auth.consultando
+            onPressed: auth.consultando || auth.ocupado
                 ? null
-                : () {
-                    auth.sair();
+                : () async {
+                    final sucesso = await auth.sair();
+                    if (!context.mounted) return;
+                    if (!sucesso) {
+                      avisar(context, auth.mensagem ?? 'Tente novamente.');
+                      return;
+                    }
                     Navigator.pushNamedAndRemoveUntil(
                       context,
                       '/',
@@ -154,9 +236,60 @@ class TelaHome extends StatelessWidget {
                   child: Center(child: CircularProgressIndicator()),
                 ),
               const SizedBox(height: 24),
-              const Text(
-                'Versão de estudo: os dados são simulados em memória e '
-                'se perdem ao recarregar. O CRUD será desenvolvido na próxima fase.',
+              ListenableBuilder(
+                listenable: documentos,
+                builder: (context, _) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Meus documentos',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: documentos.ocupado
+                            ? null
+                            : () => _abrirEditor(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Novo documento'),
+                      ),
+                    ),
+                    if (documentos.ocupado) const LinearProgressIndicator(),
+                    if (documentos.erro case final erro?) ...[
+                      Text(erro),
+                      TextButton(
+                        onPressed: documentos.carregar,
+                        child: const Text('Recarregar lista'),
+                      ),
+                    ],
+                    if (!documentos.ocupado &&
+                        documentos.erro == null &&
+                        documentos.documentos.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Nenhum documento salvo.'),
+                      ),
+                    for (final documento in documentos.documentos)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.description_outlined),
+                          title: Text(documento.titulo),
+                          onTap: documentos.ocupado
+                              ? null
+                              : () => _abrirEditor(documento),
+                          trailing: IconButton(
+                            tooltip: 'Excluir documento',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: documentos.ocupado
+                                ? null
+                                : () => _excluir(documento),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),

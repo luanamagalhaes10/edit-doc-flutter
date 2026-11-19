@@ -23,6 +23,22 @@ class _MeuAppState extends State<MeuApp> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    _auth.restaurarSessao();
+  }
+
+  Widget _inicio(BuildContext context) {
+    if (_auth.restaurando) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final sessao = _auth.sessao;
+    return sessao == null
+        ? TelaLogin(auth: _auth)
+        : TelaHome(key: ValueKey(sessao.id), auth: _auth, sessao: sessao);
+  }
+
+  @override
   void dispose() {
     _auth.dispose();
     super.dispose();
@@ -43,7 +59,10 @@ class _MeuAppState extends State<MeuApp> {
       themeMode: _auth.tema,
       initialRoute: '/',
       routes: {
-        '/': (context) => TelaLogin(auth: _auth),
+        '/': (context) => ListenableBuilder(
+          listenable: _auth,
+          builder: (context, _) => _inicio(context),
+        ),
         '/cadastro': (context) => TelaCadastro(auth: _auth),
       },
       onGenerateRoute: (settings) {

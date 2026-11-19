@@ -1,10 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edit_doc_flutter/models/services/banco_local_service.dart';
 import 'package:edit_doc_flutter/models/services/preferences_service.dart';
 import 'package:edit_doc_flutter/viewmodels/auth_viewmodel.dart';
 import 'package:edit_doc_flutter/utils/validadores.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   test('valida nome, senha e domínio estrito', () {
     expect(validarNome('Luana Magalhães'), isNull);
     expect(validarNome('Luana'), isNotNull);
@@ -54,17 +58,29 @@ void main() {
     expect(await auth.consultarUsuarios(), isTrue);
     expect(auth.usuarios.length, 1);
     expect(notificacoes, greaterThan(10));
-    auth.sair();
+    expect(await auth.alterarTema(false), isTrue);
+    final restaurada = AuthViewModel(BancoDadosLocal(), PreferencesService());
+    addTearDown(restaurada.dispose);
+    await restaurada.restaurarSessao();
+    expect(restaurada.sessao?.nome, 'Luana Magalhães');
+    expect(restaurada.preferenciasAtuais.escuro, isFalse);
+    expect(restaurada.preferenciasAtuais.fonte, 20);
+    expect(await auth.sair(), isTrue);
+    await restaurada.restaurarSessao();
+    expect(restaurada.sessao, isNull);
     expect(auth.sessao, isNull);
     expect(auth.usuarios, isEmpty);
     expect(auth.preferenciasAtuais.escuro, isFalse);
   });
 
-  test('banco isola instâncias e retorna lista imutável', () async {
-    final banco = BancoDadosLocal();
-    await banco.insert('Uma Pessoa', 'pessoa@exemplo.com.br', '123456');
-    final usuarios = await banco.query();
-    expect(() => usuarios.clear(), throwsUnsupportedError);
-    expect(await BancoDadosLocal().query(), isEmpty);
-  });
+  test(
+    'banco mantém usuários entre instâncias e retorna lista imutável',
+    () async {
+      final banco = BancoDadosLocal();
+      await banco.insert('Uma Pessoa', 'pessoa@exemplo.com.br', '123456');
+      final usuarios = await banco.query();
+      expect(() => usuarios.clear(), throwsUnsupportedError);
+      expect(await BancoDadosLocal().query(), hasLength(1));
+    },
+  );
 }
