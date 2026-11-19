@@ -2,6 +2,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edit_doc_flutter/main.dart';
+import 'package:edit_doc_flutter/models/services/banco_local_service.dart';
+import 'package:edit_doc_flutter/models/services/documento_storage_service.dart';
+import 'package:edit_doc_flutter/models/services/preferences_service.dart';
+import 'package:edit_doc_flutter/models/usuario.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -81,5 +85,44 @@ void main() {
       isFalse,
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reabrir /home restaura sessão, tema e documentos', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.binding.platformDispatcher.defaultRouteNameTestValue = '/home';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
+
+    await tester.runAsync(() async {
+      final usuario = await BancoDadosLocal().insert(
+        'Leitora Teste',
+        'leitora@exemplo.com',
+        '123456',
+      );
+      final preferencias = PreferencesService();
+      await preferencias.salvar(
+        usuario.id,
+        const PreferenciasUsuario(escuro: true),
+      );
+      await preferencias.salvarSessao(usuario.id);
+      await DocumentoStorageService().criar(
+        usuario.id,
+        'Documento revisado',
+        'Conteúdo final',
+      );
+    });
+
+    await tester.pumpWidget(const MeuApp());
+    await tester.pumpAndSettle();
+    final documento = find.text('Documento revisado');
+    expect(documento, findsOneWidget);
+    expect(Theme.of(tester.element(documento)).brightness, Brightness.dark);
+    expect(find.text('Olá, Leitora Teste!'), findsOneWidget);
   });
 }

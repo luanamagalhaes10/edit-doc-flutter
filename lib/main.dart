@@ -28,7 +28,10 @@ class _MeuAppState extends State<MeuApp> {
     _auth.restaurarSessao();
   }
 
-  Widget _inicio(BuildContext context) {
+  Widget _inicio(BuildContext context) =>
+      ListenableBuilder(listenable: _auth, builder: _telaDaSessao);
+
+  Widget _telaDaSessao(BuildContext context, Widget? child) {
     if (_auth.restaurando) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -59,10 +62,7 @@ class _MeuAppState extends State<MeuApp> {
       themeMode: _auth.tema,
       initialRoute: '/',
       routes: {
-        '/': (context) => ListenableBuilder(
-          listenable: _auth,
-          builder: (context, _) => _inicio(context),
-        ),
+        '/': _inicio,
         '/cadastro': (context) => TelaCadastro(auth: _auth),
       },
       onGenerateRoute: (settings) {
@@ -73,7 +73,7 @@ class _MeuAppState extends State<MeuApp> {
             builder: (context) =>
                 dados is DadosSessao && dados.id == _auth.sessao?.id
                 ? TelaHome(auth: _auth, sessao: dados)
-                : TelaLogin(auth: _auth),
+                : _inicio(context),
           );
         }
         return null;
